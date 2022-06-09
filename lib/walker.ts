@@ -32,6 +32,7 @@ import {
   Patches,
   PackageJson,
   SymLinks,
+  ExportMap,
 } from './types';
 
 export interface Marker {
@@ -310,6 +311,41 @@ function findCommonJunctionPoint(file: string, realFile: string) {
   }
 
   return { file, realFile };
+}
+
+const EXPORT_CONDITION_PATTERNS = ["default", "import", "require", "production"] as const;
+function extractPathFromExport(exportNode:ExportMap|string|string[], rootDirectory: string): string|undefined {
+  if(typeof exportNode === "string") {
+    return exportNode;
+  }
+
+  if(Array.isArray(exportNode)) {
+    for(const entry of exportNode) {
+      const exportPath = path.join(rootDirectory, entry);
+      if(fs.existsSync(exportPath)) return exportPath;
+    }
+    return exportNode[0];
+  }
+
+  for(const pattern of EXPORT_CONDITION_PATTERNS) {
+    const childNode = exportNode[pattern];
+    if(childNode) {
+      const exportPath = extractPathFromExport(childNode, rootDirectory);
+      if(exportPath) return exportPath;
+    }
+  }
+}
+
+const EXPORT_MAIN_PATTERNS = [".", "./index"] as const;
+function extractMainFromExports(exports: ExportMap|undefined, rootDirectory: string): string|undefined {
+  if(!exports) return;
+  for(const pattern of EXPORT_MAIN_PATTERNS) {
+    const exportNode = exports[pattern];
+    if(exportNode) {
+      const main = extractPathFromExport(exportNode, rootDirectory);
+      if(main) return main;
+    }
+  }
 }
 
 export interface WalkerParams {
@@ -749,6 +785,9 @@ class Walker {
     const catchPackageFilter = (config: PackageJson, base: string) => {
       const newPackage = newPackages[newPackages.length - 1];
       newPackage.marker = { config, configPath: newPackage.packageJson, base };
+      if(!config.main) {
+        config.main = extractMainFromExports(config.exports, base);
+      }
     };
 
     let newFile = '';

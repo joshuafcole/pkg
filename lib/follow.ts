@@ -33,7 +33,7 @@ interface FollowOptions extends Pick<SyncOpts, 'basedir' | 'extensions'> {
 
 export function follow(x: string, opts: FollowOptions) {
   // TODO async version
-  return new Promise<string>((resolve) => {
+  return new Promise<string>((resolve) => {;
     resolve(
       sync(x, {
         basedir: opts.basedir,
@@ -53,9 +53,7 @@ export function follow(x: string, opts: FollowOptions) {
           } catch (e) {
             const ex = e as NodeJS.ErrnoException;
 
-            if (ex && (ex.code === 'ENOENT' || ex.code === 'ENOTDIR'))
-              return false;
-
+            if (ex && (ex.code === 'ENOENT' || ex.code === 'ENOTDIR')) return false;
             throw ex;
           }
 
@@ -93,7 +91,6 @@ export function follow(x: string, opts: FollowOptions) {
           if (opts.catchReadFile) {
             opts.catchReadFile(file);
           }
-
           return fs.readFileSync(file);
         },
         packageFilter: (config, base, dir) => {
@@ -102,6 +99,19 @@ export function follow(x: string, opts: FollowOptions) {
           }
 
           return config;
+        },
+
+        pathFilter: (_pkg, absPath, relativePath) => {
+          const root = absPath.slice(0, -relativePath.length);
+          try {
+            let res = require.resolve(x, {paths: opts.basedir ? [opts.basedir] : undefined});
+            if(opts.basedir) res = path.relative(root, res);
+            if(res) return res;
+          } catch(err) {
+            // do nothing
+          }
+
+          return relativePath;
         },
 
         /** function to synchronously resolve a potential symlink to its real path */

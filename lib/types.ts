@@ -41,12 +41,15 @@ export interface PkgOptions {
   dictionary: ConfigDictionary;
 }
 
+export type ExportMap = {[condition_or_filename: string]: ExportMap|string|string[]};
+
 export interface PackageJson {
   name?: string;
   private?: boolean;
   licenses?: License;
   license?: License;
   main?: string;
+  exports?: ExportMap;
   dependencies?: Record<string, string>;
   files?: string[];
   pkg?: PkgOptions;
